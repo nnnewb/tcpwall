@@ -110,7 +110,7 @@ func wall(ctx context.Context, link string, host net.IP, port int, rate int) err
 				seq += uint64(i) * uint64(window)
 			}
 
-			err := SendRST(dst.To4(), src.To4(), dport, sport, uint32(seq), handle)
+			err := sendRST(dst.To4(), src.To4(), dport, sport, uint32(seq), handle)
 			if err != nil {
 				return err
 			}
@@ -118,7 +118,7 @@ func wall(ctx context.Context, link string, host net.IP, port int, rate int) err
 	}
 }
 
-func SendRST(src, dst net.IP, sport, dport uint16, seq uint32, handle *pcap.Handle) error {
+func sendRST(src, dst net.IP, sport, dport uint16, seq uint32, handle *pcap.Handle) error {
 	log.Printf("send %s:%d > %s:%d [RST] seq %d", src, sport, dst, dport, seq)
 
 	// IPv6 is not supported
@@ -201,13 +201,24 @@ func main() {
 	defer cancel()
 
 	wg := &sync.WaitGroup{}
+	done := make(chan struct{})
 	go func(wg *sync.WaitGroup) {
-		log.Println(wall(ctx, options.Link, ip, int(port), 10))
+		if err := wall(ctx, options.Link, ip, int(port), 10); err != nil {
+			log.Printf("error occurred when capture packet: %+v", err)
+		}
+		close(done)
 	}(wg)
 
 	c := make(chan os.Signal, 1)
 	signal.Notify(c, os.Interrupt)
-	<-c
+	select {
+	case <-c:
+		log.Printf("received interrupt signal")
+		break
+	case <-done:
+		log.Printf("business goroutine has dead, quit now")
+		break
+	}
 	log.Printf("graceful shutdown ...")
 	cancel()
 	wg.Wait()
