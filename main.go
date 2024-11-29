@@ -178,7 +178,7 @@ func main() {
 	if len(options.Link) == 0 {
 		devs := must(pcap.FindAllDevs())
 		if len(devs) == 0 {
-			log.Printf("interface is not found,please select the interface manually.")
+			log.Printf("interface is not found, please select the interface manually.")
 			os.Exit(1)
 		}
 		log.Printf("select interface %s", devs[0].Name)
